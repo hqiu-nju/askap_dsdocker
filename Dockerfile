@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Base system tools and Python
+# Base system tools, Python, and WSClean build dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
@@ -13,15 +13,19 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     pkg-config \
-    python3 \
-    python3-dev \
-    python3-pip \
-    libboost-all-dev \
-    libcfitsio-dev \
+    g++ \
+    make \
     libfftw3-dev \
+    libcfitsio-dev \
+    libboost-all-dev \
     libgsl-dev \
     libhdf5-dev \
     liblua5.3-dev \
+    casacore-dev \
+    libaocommon-dev \
+    python3 \
+    python3-dev \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
