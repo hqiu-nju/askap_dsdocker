@@ -3,15 +3,19 @@ FROM ubuntu:22.04
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update and install system dependencies
+# Base system tools and Python
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3.11-dev \
-    python3-pip \
-    wget \
+    ca-certificates \
     curl \
     git \
+    wget \
+    gnupg \
     build-essential \
+    cmake \
+    pkg-config \
+    python3 \
+    python3-dev \
+    python3-pip \
     libboost-all-dev \
     libcfitsio-dev \
     libfftw3-dev \
@@ -20,25 +24,20 @@ RUN apt-get update && apt-get install -y \
     liblua5.3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.11 as default
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
-    && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
-
 # Upgrade pip
 RUN python3 -m pip install --upgrade pip setuptools wheel
 
-# Install WSclean (version 3.5+)
-RUN apt-get update && apt-get install -y software-properties-common \
-    && add-apt-repository ppa:kernsuite/kern-9 \
-    && apt-get update \
-    && apt-get install -y wsclean \
+# Install MIRIAD from Ubuntu packages
+RUN apt-get update \
+    && apt-get install -y miriad \
     && rm -rf /var/lib/apt/lists/*
 
-# Install MIRIAD (for ATCA pre-processing)
-RUN apt-get update && apt-get install -y \
-    miriad \
-    || echo "MIRIAD installation optional - install manually if needed" \
-    && rm -rf /var/lib/apt/lists/*
+# Build and install WSClean from source
+RUN git clone --depth 1 https://gitlab.com/aroffringa/wsclean.git /tmp/wsclean \
+    && cmake -S /tmp/wsclean -B /tmp/wsclean/build \
+    && cmake --build /tmp/wsclean/build -j"$(nproc)" \
+    && cmake --install /tmp/wsclean/build \
+    && rm -rf /tmp/wsclean
 
 # Install dstools
 RUN pip install radio-dstools
