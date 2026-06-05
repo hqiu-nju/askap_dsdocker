@@ -1,53 +1,61 @@
-FROM ubuntu:22.04
+ARG KERN_PLATFORM=linux/amd64
+FROM --platform=${KERN_PLATFORM} kernsuite/base:9
 
-# Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Base system tools, Python, and WSClean build dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    curl \
-    git \
-    wget \
-    gnupg \
+ARG MIRIAD_VERSION=2026.04.30
+
+# System utilities and Python runtime used for interactive ASKAP reductions.
+RUN docker-apt-install \
+    bash-completion \
     build-essential \
+    ca-certificates \
     cmake \
-    pkg-config \
-    g++ \
-    make \
-    libfftw3-dev \
+    curl \
+    gfortran \
+    git \
+    less \
     libcfitsio-dev \
-    libboost-all-dev \
-    libgsl-dev \
-    libhdf5-dev \
-    liblua5.3-dev \
-    casacore-dev \
-    libaocommon-dev \
+    nano \
+    libpng-dev \
+    libreadline-dev \
+    libx11-dev \
     python3 \
     python3-dev \
     python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+    vim \
+    wget
 
-# Upgrade pip
-RUN python3 -m pip install --upgrade pip setuptools wheel
+# KERN Suite radio astronomy tools.
+RUN docker-apt-install \
+    aoflagger \
+    casacore-data \
+    casacore-tools \
+    python3-casacore \
+    wsclean
 
-# Install MIRIAD from Ubuntu packages
-RUN apt-get update \
-    && apt-get install -y miriad \
-    && rm -rf /var/lib/apt/lists/*
+# Build and install CSIRO MIRIAD in the same container.
+RUN git clone --depth 1 --branch "${MIRIAD_VERSION}" https://github.com/csiro/miriad.git /tmp/miriad \
+    && sed -i '/DOWNLOAD_EXTRACT_TIMESTAMP/d' \
+        /tmp/miriad/pgplot/CMakeLists.txt \
+        /tmp/miriad/rpfits/CMakeLists.txt \
+        /tmp/miriad/wcslib/CMakeLists.txt \
+    && cmake -S /tmp/miriad -B /tmp/miriad/build -DCMAKE_INSTALL_PREFIX=/opt/miriad \
+    && cmake --build /tmp/miriad/build --target install --parallel 1 \
+    && . /opt/miriad/MIRRC.sh \
+    && command -v miriad \
+    && rm -rf /tmp/miriad
 
-# Build and install WSClean from source
-RUN git clone --depth 1 https://gitlab.com/aroffringa/wsclean.git /tmp/wsclean \
-    && cmake -S /tmp/wsclean -B /tmp/wsclean/build \
-    && cmake --build /tmp/wsclean/build -j"$(nproc)" \
-    && cmake --install /tmp/wsclean/build \
-    && rm -rf /tmp/wsclean
+ENV MIR=/opt/miriad
+ENV PATH="/opt/miriad/bin:/opt/miriad/linux64/bin:${PATH}"
 
-# Install dstools
-RUN pip install radio-dstools
+RUN printf '\n. /opt/miriad/MIRRC.sh\n' >> /etc/bash.bashrc
 
-# Set working directory
+# Python tooling used by the ASKAP dynamic spectrum workflow.
+RUN python3 -m pip install --no-cache-dir \
+    radio-dstools
+
 WORKDIR /workspace
 
-# Set default command
 CMD ["/bin/bash"]
