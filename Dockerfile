@@ -6,6 +6,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG MIRIAD_VERSION=2026.04.30
 ARG EVERYBEAM_REPOSITORY=https://git.astron.nl/RD/EveryBeam.git
+ARG WSCLEAN_VERSION=v3.7
+ARG WSCLEAN_REPOSITORY=https://gitlab.com/aroffringa/wsclean.git
 
 # System utilities and Python runtime used for interactive ASKAP reductions.
 RUN docker-apt-install \
@@ -21,6 +23,8 @@ RUN docker-apt-install \
     less \
     libblas-dev \
     libboost-dev \
+    libboost-filesystem-dev \
+    libboost-program-options-dev \
     libboost-python-dev \
     libboost-test-dev \
     libcfitsio-dev \
@@ -30,6 +34,7 @@ RUN docker-apt-install \
     libhdf5-dev \
     liblapack-dev \
     libncurses-dev \
+    libopenmpi-dev \
     libpng-dev \
     libpython3-dev \
     libreadline-dev \
@@ -37,6 +42,7 @@ RUN docker-apt-install \
     libx11-dev \
     make \
     nano \
+    pkg-config \
     python3 \
     python3-dev \
     python3-pip \
@@ -50,8 +56,7 @@ RUN docker-apt-install \
     casacore-data \
     casacore-tools \
     python3-casacore \
-    wcslib-dev \
-    wsclean
+    wcslib-dev
 
 # Build and install EveryBeam from source, following the upstream build guide.
 RUN git clone --recursive -j4 "${EVERYBEAM_REPOSITORY}" /tmp/EveryBeam \
@@ -63,6 +68,7 @@ RUN git clone --recursive -j4 "${EVERYBEAM_REPOSITORY}" /tmp/EveryBeam \
         -DCMAKE_SHARED_LINKER_FLAGS='-fno-lto' \
         -DBUILD_TESTING=OFF \
         -DBUILD_WITH_PYTHON=ON \
+        -DPORTABLE=ON \
     && cmake --build /tmp/EveryBeam/build --target install --parallel "$(nproc)" \
     && printf '/opt/everybeam/lib\n' > /etc/ld.so.conf.d/everybeam.conf \
     && ldconfig \
@@ -72,6 +78,20 @@ RUN git clone --recursive -j4 "${EVERYBEAM_REPOSITORY}" /tmp/EveryBeam \
 ENV EVERYBEAM_ROOT=/opt/everybeam
 ENV LD_LIBRARY_PATH=/opt/everybeam/lib
 ENV PYTHONPATH=/opt/everybeam/lib/python3.12/dist-packages
+
+# Build WSClean after EveryBeam so primary-beam correction is enabled.
+RUN docker-apt-install \
+    pybind11-dev
+
+RUN git clone --depth 1 --branch "${WSCLEAN_VERSION}" "${WSCLEAN_REPOSITORY}" /tmp/wsclean \
+    && cmake -S /tmp/wsclean -B /tmp/wsclean/build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_PREFIX_PATH=/opt/everybeam \
+        -DPORTABLE=ON \
+    && cmake --build /tmp/wsclean/build --target install --parallel "$(nproc)" \
+    && wsclean --version \
+    && rm -rf /tmp/wsclean
 
 # Build and install CSIRO MIRIAD in the same container.
 RUN git clone --depth 1 --branch "${MIRIAD_VERSION}" https://github.com/csiro/miriad.git /tmp/miriad \
