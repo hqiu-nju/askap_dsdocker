@@ -40,6 +40,10 @@ RUN docker-apt-install \
     libreadline-dev \
     libxml2-dev \
     libx11-dev \
+    libxext-dev \
+    libxft-dev \
+    libxmu-dev \
+    libxt-dev \
     make \
     nano \
     pkg-config \
@@ -47,7 +51,11 @@ RUN docker-apt-install \
     python3-dev \
     python3-pip \
     vim \
-    wget
+    wget \
+    x11-apps \
+    x11-utils \
+    xauth \
+    xterm
 
 # KERN Suite radio astronomy tools.
 RUN docker-apt-install \

@@ -15,6 +15,18 @@ Open a shell with the current directory mounted as `/workspace`:
 docker run --rm -it -v "$PWD":/workspace askap_ds
 ```
 
+Open a shell with X11 forwarding enabled:
+
+```sh
+docker run --rm -it \
+  -e DISPLAY \
+  -e XAUTHORITY=/tmp/.docker.xauth \
+  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  -v "${XAUTHORITY:-$HOME/.Xauthority}":/tmp/.docker.xauth:ro \
+  -v "$PWD":/workspace \
+  askap_ds
+```
+
 ## Singularity / Apptainer
 
 Build the Singularity image from the Docker-bootstrap definition:
